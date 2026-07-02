@@ -40,6 +40,18 @@ def create_sns_topic():
     print("Set this as CLOUDTASK_SNS_TOPIC_ARN in your environment.")
     return topic_arn
 
+def create_log_group():
+    logs = boto3.client("logs", region_name= config.AWS_REGION)
+    try:
+        logs.create_log_group(logGroupName="/cloudtask/cli")
+        print("Log group /cloudtask/cli created.")
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourcesAlreadyExistsException":
+            print("Log group /cloudtask/cli already exists... skipping.")
+        else:
+            raise
+        
 if __name__ == "__main__":
     create_table()
     create_sns_topic()
+    create_log_group()
