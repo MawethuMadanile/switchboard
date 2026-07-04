@@ -21,15 +21,15 @@ def _is_due_soon(task):
     window = datetime.now(timezone.utc) + timedelta(hours=config.DUE_SOON_HOURS)
     return due <= window and task.get("status") != "done"
 
-def publish_due_soon():
+def publish_due_soon(user_id=config.DEFAULT_USER_ID):
     if not config.SNS_TOPIC_ARN:
         logger.error("CLOUDTASK_SNS_TOPIC_ARN not set... skipping.")
         return []
-    
+
     due_tasks = [t for t in db.list_tasks(user_id) if _is_due_soon(t)]
     sent = []
     for task in due_tasks:
-        message = f"Task due soon: {task["title"]} (due {task["due_date"]})"
+        message = f"Task due soon: {task['title']} (due {task['due_date']})"
         try: 
             _sns.publish(
                 TopicArn= config.SNS_TOPIC_ARN,
