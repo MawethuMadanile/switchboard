@@ -15,11 +15,11 @@ def create_table():
             TableName=config.TABLE_NAME,
             KeySchema=[
                 {"AttributeName": "user_id", "KeyType": "HASH"},
-                {"AtrributeName": "task_id", "KeyType": "RANGE"}
+                {"AttributeName": "task_id", "KeyType": "RANGE"},
             ],
-            AttributeDefenitions=[
+            AttributeDefinitions=[
                 {"AttributeName": "user_id", "AttributeType": "S"},
-                {"AttributeName": "task_id", "AttributeType": "S"}
+                {"AttributeName": "task_id", "AttributeType": "S"},
             ],
             BillingMode="PAY_PER_REQUEST",
         )

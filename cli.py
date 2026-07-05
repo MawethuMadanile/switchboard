@@ -1,14 +1,27 @@
+"""
+CloudTask CLI — entry point.
+
+Usage:
+    python cli.py add "Finish report" --due 2026-07-10 --priority high
+    python cli.py list [--status pending]
+    python cli.py update <task_id> --status done
+    python cli.py delete <task_id>
+    python cli.py notify
+"""
 import click
+
 import db
 import notify as notify_mod
 from logging_setup import configure_logging
 
 logger = configure_logging()
 
+
 @click.group()
 def cli():
     """CloudTask — a DynamoDB-backed task manager."""
     pass
+
 
 @cli.command()
 @click.argument("title")
@@ -34,7 +47,7 @@ def list_cmd(status):
         click.echo("No tasks found.")
         return
     for t in tasks:
-        click.echo(f"[{t['status']:^11}] {t['task_id'][:8]}  {t['title']}"
+        click.echo(f"[{t['status']:^11}] {t['task_id']}  {t['title']}"
                     f"  (due {t.get('due_date', '—')}, priority {t['priority']})")
 
 

@@ -33,7 +33,7 @@ See `docs/architecture.md` for the full diagram and integration flow.
    ```
 5. Set the SNS topic ARN printed by the script above:
    ```
-   export CLOUDTASK_SNS_TOPIC_ARN=arn:aws:sns:af-south-1:...:CloudTaskReminders
+   export CLOUDTASK_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:...:CloudTaskReminders
    ```
 
 ## Usage
@@ -57,7 +57,7 @@ pytest tests/
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CLOUDTASK_REGION` | `af-south-1` | AWS region |
+| `CLOUD_REGION` | `us-east-1` | AWS region |
 | `CLOUDTASK_TABLE` | `CloudTaskTasks` | DynamoDB table name |
 | `CLOUDTASK_SNS_TOPIC_ARN` | — | Required for `notify` |
 | `CLOUDTASK_DUE_SOON_HOURS` | `24` | Notification window |

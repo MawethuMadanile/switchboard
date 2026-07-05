@@ -11,13 +11,16 @@
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem"
       ],
-      "Resource": "arn:aws:dynamodb:af-south-1:ACCOUNT_ID:table/CloudTaskTasks"
+      "Resource": "arn:aws:dynamodb:us-east-1:472706939265:table/cloudTaskTasks"
     },
     {
       "Sid": "SNSPublish",
       "Effect": "Allow",
-      "Action": "sns:Publish",
-      "Resource": "arn:aws:sns:af-south-1:ACCOUNT_ID:CloudTaskReminders"
+      "Action": [
+        "sns:Publish",
+        "sns:Subscribe"
+      ],
+      "Resource": "arn:aws:sns:us-east-1:472706939265:CloudTaskReminders"
     },
     {
       "Sid": "CloudWatchLogs",
@@ -28,7 +31,19 @@
         "logs:PutLogEvents",
         "logs:DescribeLogStreams"
       ],
-      "Resource": "arn:aws:logs:af-south-1:ACCOUNT_ID:log-group:/cloudtask/*"
+      "Resource": "arn:aws:logs:us-east-1:472706939265:log-group:/cloudtask/*"
+    },
+    {
+      "Sid": "OneTimeProvisioning",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:ListTables",
+        "dynamodb:DescribeTable",
+        "sns:CreateTopic",
+        "logs:CreateLogGroup"
+      ],
+      "Resource": "*"
     }
   ]
 }

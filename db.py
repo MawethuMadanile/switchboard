@@ -38,10 +38,10 @@ def update_task(task_id, user_id=config.DEFAULT_USER_ID, **fields):
     values = {f":{k}": v for k, v in fields.items()}
     resp = _table.update_item(
         Key={"user_id": user_id, "task_id": task_id},
-        UpdateExpression = expr,
-        ExprssionAttributeNames=names,
+        UpdateExpression=expr,
+        ExpressionAttributeNames=names,      
         ExpressionAttributeValues=values,
-        ReturnValues= "ALL_NEW",
+        ReturnValues="ALL_NEW",
     )
     return resp.get("Attributes")
 
