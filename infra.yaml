@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  CloudTask infrastructure — DynamoDB table, SNS topic, and CloudWatch
+  log group. Replaces the manual setup_infra.py boto3 script with
+  declarative Infrastructure as Code.
+
+Parameters:
+  TableName:
+    Type: String
+    Default: cloudTaskTasks
+    Description: DynamoDB table name for tasks
+
+  TopicName:
+    Type: String
+    Default: CloudTaskReminders
+    Description: SNS topic name for due-soon notifications
+
+  LogGroupName:
+    Type: String
+    Default: /cloudtask/cli
+    Description: CloudWatch log group for CLI logging
+
+Resources:
+  TasksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: task_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: task_id
+          KeyType: RANGE
+
+  RemindersTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref TopicName
+
+  CliLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref LogGroupName
+      RetentionInDays: 30
+
+Outputs:
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref TasksTable
+
+  TopicArn:
+    Description: SNS topic ARN — set this as CLOUDTASK_SNS_TOPIC_ARN
+    Value: !Ref RemindersTopic
+
+  LogGroupName:
+    Description: CloudWatch log group name
+    Value: !Ref CliLogGroup
