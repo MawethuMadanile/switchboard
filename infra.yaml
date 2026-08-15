@@ -1,24 +1,19 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  CloudTask infrastructure — DynamoDB table, SNS topic, and CloudWatch
-  log group. Replaces the manual setup_infra.py boto3 script with
-  declarative Infrastructure as Code.
+  CloudTask infrastructure — DynamoDB table, SNS topic, CloudWatch log
+  group, and networking (VPC, subnets, security group) for future
+  container workloads.
 
 Parameters:
   TableName:
     Type: String
     Default: cloudTaskTasks
-    Description: DynamoDB table name for tasks
-
   TopicName:
     Type: String
     Default: CloudTaskReminders
-    Description: SNS topic name for due-soon notifications
-
   LogGroupName:
     Type: String
     Default: /cloudtask/cli
-    Description: CloudWatch log group for CLI logging
 
 Resources:
   TasksTable:
@@ -48,15 +43,96 @@ Resources:
       LogGroupName: !Ref LogGroupName
       RetentionInDays: 30
 
+  CloudTaskVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: cloudtask-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cloudtask-igw
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref CloudTaskVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CloudTaskVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cloudtask-public-subnet
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CloudTaskVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: cloudtask-private-subnet
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref CloudTaskVPC
+      Tags:
+        - Key: Name
+          Value: cloudtask-public-rt
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  ServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for CloudTask ECS tasks
+      VpcId: !Ref CloudTaskVPC
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: cloudtask-service-sg
+
 Outputs:
   TableName:
-    Description: DynamoDB table name
     Value: !Ref TasksTable
-
   TopicArn:
-    Description: SNS topic ARN — set this as CLOUDTASK_SNS_TOPIC_ARN
     Value: !Ref RemindersTopic
-
   LogGroupName:
-    Description: CloudWatch log group name
     Value: !Ref CliLogGroup
+  VpcId:
+    Value: !Ref CloudTaskVPC
+  PublicSubnetId:
+    Value: !Ref PublicSubnet
+  PrivateSubnetId:
+    Value: !Ref PrivateSubnet
+  ServiceSecurityGroupId:
+    Value: !Ref ServiceSecurityGroup
