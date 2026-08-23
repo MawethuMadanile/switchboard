@@ -268,7 +268,7 @@ Outputs:
     Value: !Ref PrivateSubnet
   ServiceSecurityGroupId:
     Value: !Ref ServiceSecurityGroup
-    EcsClusterName:
+  EcsClusterName:
     Value: !Ref EcsCluster
   NotifyTaskDefinitionArn:
     Value: !Ref NotifyTaskDefinition
