@@ -14,6 +14,9 @@ Parameters:
   LogGroupName:
     Type: String
     Default: /cloudtask/cli
+  ImageUri:
+    Type: String
+    Default: 472706939265.dkr.ecr.us-east-1.amazonaws.com/cloudtask:latest
 
 Resources:
   TasksTable:
@@ -120,6 +123,135 @@ Resources:
       Tags:
         - Key: Name
           Value: cloudtask-service-sg
+    
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: cloudtask-cluster
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudtask-task-execution-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudtask-task-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cloudtask-task-permissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt TasksTable.Arn
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref RemindersTopic
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${CliLogGroup.Arn}:*"
+
+  NotifyTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: cloudtask-notify
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: cloudtask
+          Image: !Ref ImageUri
+          Command: ["notify"]
+          Environment:
+            - Name: CLOUD_REGION
+              Value: !Ref AWS::Region
+            - Name: CLOUDTASK_TABLE
+              Value: !Ref TableName
+            - Name: CLOUDTASK_SNS_TOPIC_ARN
+              Value: !Ref RemindersTopic
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroupName
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: notify
+
+  EventBridgeInvokeEcsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudtask-eventbridge-ecs-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cloudtask-eventbridge-run-task
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ecs:RunTask
+                Resource: !Ref NotifyTaskDefinition
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !GetAtt TaskExecutionRole.Arn
+                  - !GetAtt TaskRole.Arn
+
+  NotifyScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: cloudtask-notify-schedule
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Id: cloudtask-notify-target
+          Arn: !GetAtt EcsCluster.Arn
+          RoleArn: !GetAtt EventBridgeInvokeEcsRole.Arn
+          EcsParameters:
+            TaskDefinitionArn: !Ref NotifyTaskDefinition
+            TaskCount: 1
+            LaunchType: FARGATE
+            NetworkConfiguration:
+              AwsVpcConfiguration:
+                Subnets:
+                  - !Ref PublicSubnet
+                SecurityGroups:
+                  - !Ref ServiceSecurityGroup
+                AssignPublicIp: ENABLED
 
 Outputs:
   TableName:
@@ -136,3 +268,7 @@ Outputs:
     Value: !Ref PrivateSubnet
   ServiceSecurityGroupId:
     Value: !Ref ServiceSecurityGroup
+    EcsClusterName:
+    Value: !Ref EcsCluster
+  NotifyTaskDefinitionArn:
+    Value: !Ref NotifyTaskDefinition
