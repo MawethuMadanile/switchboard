@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  CloudTask infrastructure — DynamoDB table, SNS topic, CloudWatch log
+  Cloud infrastructure — DynamoDB table, SNS topic, CloudWatch log
   group, and networking (VPC, subnets, security group) for future
   container workloads.
 
@@ -195,7 +195,7 @@ Resources:
           Environment:
             - Name: CLOUD_REGION
               Value: !Ref AWS::Region
-            - Name: CLOUDTASK_TABLE
+            - Name: CLOUD_TABLE
               Value: !Ref TableName
             - Name: CLOUDTASK_SNS_TOPIC_ARN
               Value: !Ref RemindersTopic
