@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CloudTask</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  #api-url { width: 100%; padding: 0.4rem; margin-bottom: 1rem; }
+  form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  input[type=text] { flex: 1; padding: 0.4rem; }
+  button { padding: 0.4rem 0.8rem; cursor: pointer; }
+  ul { list-style: none; padding: 0; }
+  li { display: flex; justify-content: space-between; align-items: center;
+       padding: 0.5rem; border-bottom: 1px solid #ddd; }
+  li.done { opacity: 0.5; text-decoration: line-through; }
+  .actions button { margin-left: 0.3rem; }
+</style>
+</head>
+<body>
+<h1>CloudTask</h1>
+<label for="api-url">API base URL</label>
+<input id="api-url" type="text" placeholder="http://your-alb-dns-name">
+
+<form id="add-form">
+  <input id="title" type="text" placeholder="New task title" required>
+  <button type="submit">Add</button>
+</form>
+
+<ul id="task-list"></ul>
+
+<script>
+const apiUrlInput = document.getElementById("api-url");
+const taskList = document.getElementById("task-list");
+const addForm = document.getElementById("add-form");
+
+apiUrlInput.value = localStorage.getItem("cloudtask-api-url") || "";
+apiUrlInput.addEventListener("change", () => {
+  localStorage.setItem("cloudtask-api-url", apiUrlInput.value);
+  loadTasks();
+});
+
+function apiBase() {
+  return apiUrlInput.value.replace(/\/$/, "");
+}
+
+async function loadTasks() {
+  if (!apiBase()) return;
+  const res = await fetch(`${apiBase()}/tasks`);
+  const tasks = await res.json();
+  taskList.innerHTML = "";
+  tasks.forEach(task => {
+    const li = document.createElement("li");
+    if (task.status === "done") li.classList.add("done");
+    li.innerHTML = `
+      <span>${task.title}</span>
+      <span class="actions">
+        <button data-action="done" data-id="${task.task_id}">Done</button>
+        <button data-action="delete" data-id="${task.task_id}">Delete</button>
+      </span>
+    `;
+    taskList.appendChild(li);
+  });
+}
+
+taskList.addEventListener("click", async (e) => {
+  const id = e.target.dataset.id;
+  if (!id) return;
+  if (e.target.dataset.action === "done") {
+    await fetch(`${apiBase()}/tasks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "done" }),
+    });
+  } else if (e.target.dataset.action === "delete") {
+    await fetch(`${apiBase()}/tasks/${id}`, { method: "DELETE" });
+  }
+  loadTasks();
+});
+
+addForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = document.getElementById("title").value;
+  await fetch(`${apiBase()}/tasks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  document.getElementById("title").value = "";
+  loadTasks();
+});
+
+if (apiUrlInput.value) loadTasks();
+</script>
+</body>
+</html>

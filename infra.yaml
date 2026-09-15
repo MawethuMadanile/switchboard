@@ -17,6 +17,9 @@ Parameters:
   ImageUri:
     Type: String
     Default: 472706939265.dkr.ecr.us-east-1.amazonaws.com/cloudtask:latest
+    ApiImageUri:
+    Type: String
+    Default: 472706939265.dkr.ecr.us-east-1.amazonaws.com/cloudtask-api:latest
 
 Resources:
   TasksTable:
@@ -79,6 +82,39 @@ Resources:
       Tags:
         - Key: Name
           Value: cloudtask-public-subnet
+    PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CloudTaskVPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cloudtask-public-subnet-2
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+  
+    AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the CloudTask ALB
+      VpcId: !Ref CloudTaskVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: cloudtask-alb-sg
 
   PrivateSubnet:
     Type: AWS::EC2::Subnet
@@ -123,6 +159,23 @@ Resources:
       Tags:
         - Key: Name
           Value: cloudtask-service-sg
+  
+    ServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for CloudTask ECS tasks
+      VpcId: !Ref CloudTaskVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: cloudtask-service-sg
     
   EcsCluster:
     Type: AWS::ECS::Cluster
@@ -142,6 +195,39 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+    ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: cloudtask-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+
+  ApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: cloudtask-api-tg
+      Port: 5000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref CloudTaskVPC
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+
+  ApiListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
 
   TaskRole:
     Type: AWS::IAM::Role
@@ -176,6 +262,58 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub "${CliLogGroup.Arn}:*"
+
+    ApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: cloudtask-api
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: cloudtask-api
+          Image: !Ref ApiImageUri
+          PortMappings:
+            - ContainerPort: 5000
+          Environment:
+            - Name: CLOUD_REGION
+              Value: !Ref AWS::Region
+            - Name: CLOUD_TABLE
+              Value: !Ref TableName
+            - Name: CLOUDTASK_SNS_TOPIC_ARN
+              Value: !Ref RemindersTopic
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroupName
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+
+  ApiService:
+    Type: AWS::ECS::Service
+    DependsOn: ApiListener
+    Properties:
+      ServiceName: cloudtask-api-service
+      Cluster: !Ref EcsCluster
+      TaskDefinition: !Ref ApiTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PublicSubnet
+            - !Ref PublicSubnet2
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          AssignPublicIp: ENABLED
+      LoadBalancers:
+        - ContainerName: cloudtask-api
+          ContainerPort: 5000
+          TargetGroupArn: !Ref ApiTargetGroup
 
   NotifyTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -253,6 +391,47 @@ Resources:
                   - !Ref ServiceSecurityGroup
                 AssignPublicIp: ENABLED
 
+    FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: cloudtask-frontend-472706939265
+      WebsiteConfiguration:
+        IndexDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: FrontendOrigin
+            DomainName: !Select [1, !Split ["://", !GetAtt FrontendBucket.WebsiteURL]]
+            CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          TargetOriginId: FrontendOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          ForwardedValues:
+            QueryString: false
+
 Outputs:
   TableName:
     Value: !Ref TasksTable
@@ -272,3 +451,11 @@ Outputs:
     Value: !Ref EcsCluster
   NotifyTaskDefinitionArn:
     Value: !Ref NotifyTaskDefinition
+    PublicSubnet2Id:
+    Value: !Ref PublicSubnet2
+  AlbDnsName:
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+  FrontendUrl:
+    Value: !GetAtt FrontendDistribution.DomainName
+  FrontendBucketName:
+    Value: !Ref FrontendBucket
