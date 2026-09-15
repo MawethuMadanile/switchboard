@@ -1,0 +1,670 @@
+
+/* ========================================
+   GLOBAL
+======================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: auto;
+    scroll-snap-type: y mandatory;
+}
+
+body {
+    background: #000;
+    color: #fff;
+
+    font-family: Arial, Helvetica, sans-serif;
+
+    overflow-x: hidden;
+}
+
+.page {
+    width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+
+    position: relative;
+
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+
+    overflow: hidden;
+}
+
+
+/* ========================================
+   LANDING PAGE
+======================================== */
+
+.hero-page {
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    background-image:
+        url("../switchboard.png");
+
+    background-size: cover;
+    background-position: center;
+
+    background-repeat: no-repeat;
+}
+
+
+/* ========================================
+   INTRO / BUILD / DEPLOY / SCALE
+======================================== */
+
+.intro-page {
+
+    display: flex;
+
+    align-items: center;
+
+    background: #000;
+}
+
+.intro-content {
+
+    width: min(950px, 84%);
+
+    margin-left: 8vw;
+
+    /*
+        Keeps the content safely inside
+        the viewport.
+    */
+
+    max-height: 88vh;
+
+    padding: 40px 0;
+}
+
+.section-number {
+
+    color: #f59b23;
+
+    font-size: 11px;
+
+    letter-spacing: 4px;
+
+    margin-bottom: 20px;
+}
+
+.intro-content h2 {
+
+    font-size: clamp(40px, 5.8vw, 82px);
+
+    line-height: 0.94;
+
+    font-weight: 900;
+
+    letter-spacing: -3px;
+
+    margin-bottom: 28px;
+}
+
+.intro-content h2 span {
+
+    color: #f59b23;
+}
+
+.intro-content p {
+
+    max-width: 760px;
+
+    font-size: 15px;
+
+    line-height: 1.55;
+
+    color: rgba(255,255,255,0.65);
+
+    margin-bottom: 14px;
+}
+
+.intro-line {
+
+    width: 100%;
+
+    max-width: 760px;
+
+    height: 1px;
+
+    background: rgba(255,255,255,0.2);
+
+    margin: 25px 0 15px;
+}
+
+
+/* ========================================
+   BUILD / DEPLOY / SCALE BUTTONS
+======================================== */
+
+.intro-meta {
+
+    display: flex;
+
+    gap: 0;
+
+    width: min(760px, 100%);
+}
+
+
+/* Clickable buttons */
+
+.feature-button {
+
+    flex: 1;
+
+    min-height: 70px;
+
+    padding: 14px 20px;
+
+    border: 1px solid rgba(255,255,255,0.15);
+
+    border-right: none;
+
+    background: transparent;
+
+    color: #fff;
+
+    cursor: pointer;
+
+    text-align: left;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+
+    transition:
+        background 0.3s ease,
+        color 0.3s ease,
+        transform 0.3s ease,
+        border-color 0.3s ease;
+}
+
+.feature-button:last-child {
+
+    border-right:
+        1px solid rgba(255,255,255,0.15);
+}
+
+.feature-button span {
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    letter-spacing: 3px;
+}
+
+.feature-button small {
+
+    margin-top: 6px;
+
+    font-size: 8px;
+
+    letter-spacing: 3px;
+
+    color: rgba(255,255,255,0.4);
+}
+
+.feature-button:hover {
+
+    background: #f59b23;
+
+    color: #000;
+
+    border-color: #f59b23;
+
+    transform: translateY(-4px);
+}
+
+.feature-button:hover small {
+
+    color: rgba(0,0,0,0.6);
+}
+
+
+/* ========================================
+   APP PAGE
+======================================== */
+
+.app-page {
+
+    background:
+        radial-gradient(
+            circle at center,
+            #181818 0%,
+            #050505 60%,
+            #000 100%
+        );
+
+    padding: 50px 8vw;
+}
+
+.app-page header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+}
+
+.logo {
+
+    font-size: 28px;
+
+    font-weight: 900;
+}
+
+.logo span {
+
+    color: #f59b23;
+}
+
+.status {
+
+    font-size: 11px;
+
+    letter-spacing: 2px;
+
+    color: rgba(255,255,255,0.6);
+}
+
+.status-dot {
+
+    display: inline-block;
+
+    width: 7px;
+    height: 7px;
+
+    border-radius: 50%;
+
+    background: #f59b23;
+
+    margin-right: 8px;
+}
+
+.app-page main {
+
+    max-width: 1000px;
+
+    margin: 70px auto;
+}
+
+.app-title {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-end;
+
+    margin-bottom: 45px;
+}
+
+.app-title h2 {
+
+    font-size: clamp(40px, 6vw, 80px);
+
+    line-height: 0.9;
+
+    letter-spacing: -3px;
+}
+
+#task-count {
+
+    color: rgba(255,255,255,0.5);
+
+    font-size: 12px;
+
+    letter-spacing: 2px;
+}
+
+
+/* ========================================
+   API
+======================================== */
+
+.api-section {
+
+    margin-bottom: 25px;
+}
+
+.api-section label {
+
+    display: block;
+
+    font-size: 10px;
+
+    letter-spacing: 3px;
+
+    color: rgba(255,255,255,0.5);
+
+    margin-bottom: 10px;
+}
+
+.api-section input,
+#title {
+
+    width: 100%;
+
+    padding: 17px;
+
+    background: #111;
+
+    border: 1px solid #292929;
+
+    color: white;
+
+    outline: none;
+
+    font-size: 14px;
+}
+
+.api-section input:focus,
+#title:focus {
+
+    border-color: #f59b23;
+}
+
+
+/* ========================================
+   ADD TASK
+======================================== */
+
+#add-form {
+
+    display: flex;
+
+    gap: 10px;
+
+    margin-bottom: 30px;
+}
+
+#add-form button {
+
+    padding: 0 30px;
+
+    border: none;
+
+    background: #f59b23;
+
+    color: #000;
+
+    font-weight: 800;
+
+    letter-spacing: 2px;
+
+    cursor: pointer;
+
+    transition: 0.3s ease;
+}
+
+#add-form button:hover {
+
+    background: #fff;
+}
+
+
+/* ========================================
+   TASK LIST
+======================================== */
+
+#task-list {
+
+    list-style: none;
+}
+
+.task-item {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    padding: 20px;
+
+    margin-bottom: 10px;
+
+    background: #111;
+
+    border: 1px solid #222;
+}
+
+.task-title {
+
+    font-size: 15px;
+}
+
+.task-item.done .task-title {
+
+    text-decoration: line-through;
+
+    opacity: 0.4;
+}
+
+.task-actions {
+
+    display: flex;
+
+    gap: 10px;
+}
+
+.task-actions button {
+
+    padding: 8px 12px;
+
+    border: 1px solid #333;
+
+    background: transparent;
+
+    color: white;
+
+    cursor: pointer;
+
+    font-size: 9px;
+
+    letter-spacing: 1px;
+}
+
+.task-actions button:hover {
+
+    background: #f59b23;
+
+    color: #000;
+
+    border-color: #f59b23;
+}
+
+.completed-label {
+
+    font-size: 9px;
+
+    color: #f59b23;
+
+    letter-spacing: 2px;
+}
+
+.empty-message,
+.error-message {
+
+    padding: 30px;
+
+    text-align: center;
+
+    color: rgba(255,255,255,0.4);
+}
+
+
+/* ========================================
+   FOOTER
+======================================== */
+
+.site-footer {
+
+    min-height: 300px;
+
+    background: #050505;
+
+    padding: 70px 8vw;
+
+    border-top: 1px solid #1a1a1a;
+}
+
+.footer-inner {
+
+    max-width: 1200px;
+
+    margin: auto;
+}
+
+.footer-brand {
+
+    font-size: 35px;
+
+    font-weight: 900;
+}
+
+.footer-brand span {
+
+    color: #f59b23;
+}
+
+.footer-info {
+
+    margin-top: 15px;
+
+    font-size: 10px;
+
+    letter-spacing: 4px;
+
+    color: rgba(255,255,255,0.4);
+}
+
+.footer-line {
+
+    width: 100%;
+
+    height: 1px;
+
+    background: #222;
+
+    margin: 50px 0 25px;
+}
+
+.footer-bottom {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    font-size: 10px;
+
+    letter-spacing: 2px;
+
+    color: rgba(255,255,255,0.35);
+}
+
+
+/* ========================================
+   MOBILE
+======================================== */
+
+@media (max-width: 700px) {
+
+    .intro-content {
+
+        width: 84%;
+
+        margin-left: auto;
+        margin-right: auto;
+
+        max-height: 94vh;
+
+        padding: 25px 0;
+    }
+
+    .intro-content h2 {
+
+        font-size: clamp(36px, 10vw, 55px);
+
+        letter-spacing: -2px;
+
+        margin-bottom: 22px;
+    }
+
+    .intro-content p {
+
+        font-size: 13px;
+
+        line-height: 1.5;
+
+        margin-bottom: 11px;
+    }
+
+    .intro-line {
+
+        margin: 20px 0 12px;
+    }
+
+    .intro-meta {
+
+        flex-direction: column;
+    }
+
+    .feature-button {
+
+        min-height: 55px;
+
+        border-right:
+            1px solid rgba(255,255,255,0.15);
+
+        border-bottom: none;
+    }
+
+    .feature-button:last-child {
+
+        border-bottom:
+            1px solid rgba(255,255,255,0.15);
+    }
+
+    #add-form {
+
+        flex-direction: column;
+    }
+
+    #add-form button {
+
+        padding: 18px;
+    }
+
+    .task-item {
+
+        flex-direction: column;
+
+        align-items: flex-start;
+
+        gap: 20px;
+    }
+
+    .footer-bottom {
+
+        flex-direction: column;
+
+        gap: 15px;
+    }
+}
+
