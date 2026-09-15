@@ -1,9 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  Cloud infrastructure — DynamoDB table, SNS topic, CloudWatch log
-  group, and networking (VPC, subnets, security group) for future
-  container workloads.
-
+  CloudTask infrastructure — storage, networking, scheduled notify task,
+  and a web-facing API + frontend (Week 5).
 Parameters:
   TableName:
     Type: String
@@ -17,7 +15,7 @@ Parameters:
   ImageUri:
     Type: String
     Default: 472706939265.dkr.ecr.us-east-1.amazonaws.com/cloudtask:latest
-    ApiImageUri:
+  ApiImageUri:
     Type: String
     Default: 472706939265.dkr.ecr.us-east-1.amazonaws.com/cloudtask-api:latest
 
@@ -82,7 +80,8 @@ Resources:
       Tags:
         - Key: Name
           Value: cloudtask-public-subnet
-    PublicSubnet2:
+
+  PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref CloudTaskVPC
@@ -92,29 +91,6 @@ Resources:
       Tags:
         - Key: Name
           Value: cloudtask-public-subnet-2
-
-  PublicSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PublicSubnet2
-      RouteTableId: !Ref PublicRouteTable
-  
-    AlbSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for the CloudTask ALB
-      VpcId: !Ref CloudTaskVPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: "-1"
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: cloudtask-alb-sg
 
   PrivateSubnet:
     Type: AWS::EC2::Subnet
@@ -148,19 +124,30 @@ Resources:
       SubnetId: !Ref PublicSubnet
       RouteTableId: !Ref PublicRouteTable
 
-  ServiceSecurityGroup:
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for CloudTask ECS tasks
+      GroupDescription: Security group for the CloudTask ALB
       VpcId: !Ref CloudTaskVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
-          Value: cloudtask-service-sg
-  
-    ServiceSecurityGroup:
+          Value: cloudtask-alb-sg
+
+  ServiceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for CloudTask ECS tasks
@@ -176,7 +163,7 @@ Resources:
       Tags:
         - Key: Name
           Value: cloudtask-service-sg
-    
+
   EcsCluster:
     Type: AWS::ECS::Cluster
     Properties:
@@ -195,39 +182,6 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-
-    ApplicationLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Name: cloudtask-alb
-      Scheme: internet-facing
-      Type: application
-      Subnets:
-        - !Ref PublicSubnet
-        - !Ref PublicSubnet2
-      SecurityGroups:
-        - !Ref AlbSecurityGroup
-
-  ApiTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: cloudtask-api-tg
-      Port: 5000
-      Protocol: HTTP
-      TargetType: ip
-      VpcId: !Ref CloudTaskVPC
-      HealthCheckPath: /health
-      HealthCheckIntervalSeconds: 30
-
-  ApiListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ApplicationLoadBalancer
-      Port: 80
-      Protocol: HTTP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ApiTargetGroup
 
   TaskRole:
     Type: AWS::IAM::Role
@@ -262,58 +216,6 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub "${CliLogGroup.Arn}:*"
-
-    ApiTaskDefinition:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: cloudtask-api
-      RequiresCompatibilities:
-        - FARGATE
-      NetworkMode: awsvpc
-      Cpu: "256"
-      Memory: "512"
-      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
-      TaskRoleArn: !GetAtt TaskRole.Arn
-      ContainerDefinitions:
-        - Name: cloudtask-api
-          Image: !Ref ApiImageUri
-          PortMappings:
-            - ContainerPort: 5000
-          Environment:
-            - Name: CLOUD_REGION
-              Value: !Ref AWS::Region
-            - Name: CLOUD_TABLE
-              Value: !Ref TableName
-            - Name: CLOUDTASK_SNS_TOPIC_ARN
-              Value: !Ref RemindersTopic
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref LogGroupName
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: api
-
-  ApiService:
-    Type: AWS::ECS::Service
-    DependsOn: ApiListener
-    Properties:
-      ServiceName: cloudtask-api-service
-      Cluster: !Ref EcsCluster
-      TaskDefinition: !Ref ApiTaskDefinition
-      DesiredCount: 1
-      LaunchType: FARGATE
-      NetworkConfiguration:
-        AwsvpcConfiguration:
-          Subnets:
-            - !Ref PublicSubnet
-            - !Ref PublicSubnet2
-          SecurityGroups:
-            - !Ref ServiceSecurityGroup
-          AssignPublicIp: ENABLED
-      LoadBalancers:
-        - ContainerName: cloudtask-api
-          ContainerPort: 5000
-          TargetGroupArn: !Ref ApiTargetGroup
 
   NotifyTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -391,7 +293,92 @@ Resources:
                   - !Ref ServiceSecurityGroup
                 AssignPublicIp: ENABLED
 
-    FrontendBucket:
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: cloudtask-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets:
+        - !Ref PublicSubnet
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+
+  ApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: cloudtask-api-tg
+      Port: 5000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref CloudTaskVPC
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+
+  ApiListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  ApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: cloudtask-api
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: cloudtask-api
+          Image: !Ref ApiImageUri
+          PortMappings:
+            - ContainerPort: 5000
+          Environment:
+            - Name: CLOUD_REGION
+              Value: !Ref AWS::Region
+            - Name: CLOUD_TABLE
+              Value: !Ref TableName
+            - Name: CLOUDTASK_SNS_TOPIC_ARN
+              Value: !Ref RemindersTopic
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroupName
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+
+  ApiService:
+    Type: AWS::ECS::Service
+    DependsOn: ApiListener
+    Properties:
+      ServiceName: cloudtask-api-service
+      Cluster: !Ref EcsCluster
+      TaskDefinition: !Ref ApiTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PublicSubnet
+            - !Ref PublicSubnet2
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          AssignPublicIp: ENABLED
+      LoadBalancers:
+        - ContainerName: cloudtask-api
+          ContainerPort: 5000
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: cloudtask-frontend-472706939265
@@ -443,6 +430,8 @@ Outputs:
     Value: !Ref CloudTaskVPC
   PublicSubnetId:
     Value: !Ref PublicSubnet
+  PublicSubnet2Id:
+    Value: !Ref PublicSubnet2
   PrivateSubnetId:
     Value: !Ref PrivateSubnet
   ServiceSecurityGroupId:
@@ -451,8 +440,6 @@ Outputs:
     Value: !Ref EcsCluster
   NotifyTaskDefinitionArn:
     Value: !Ref NotifyTaskDefinition
-    PublicSubnet2Id:
-    Value: !Ref PublicSubnet2
   AlbDnsName:
     Value: !GetAtt ApplicationLoadBalancer.DNSName
   FrontendUrl:
