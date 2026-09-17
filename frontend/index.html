@@ -12,18 +12,26 @@
 
 <body>
 
-    <!-- =================================
-         PAGE 1 — LANDING
-    ================================== -->
+    <nav class="site-nav">
 
-    <section class="page hero-page">
-        <!-- Background image only -->
+        <div class="nav-brand">
+            Switchboard
+        </div>
+
+        <div class="nav-links">
+
+            <button class="nav-btn" data-target="hero-page">HOME</button>
+            <button class="nav-btn" data-target="build-page">BUILD</button>
+            <button class="nav-btn" data-target="deploy-page">DEPLOY</button>
+            <button class="nav-btn" data-target="scale-page">SCALE</button>
+            <button class="nav-btn" data-target="app-page">APP</button>
+
+        </div>
+
+    </nav>
+
+    <section class="page hero-page" id="hero-page">
     </section>
-
-
-    <!-- =================================
-         PAGE 2 — INTRO
-    ================================== -->
 
     <section class="page intro-page">
 
@@ -87,11 +95,6 @@
 
     </section>
 
-
-    <!-- =================================
-         PAGE 3 — BUILD
-    ================================== -->
-
     <section
         class="page intro-page"
         id="build-page"
@@ -142,11 +145,6 @@
         </div>
 
     </section>
-
-
-    <!-- =================================
-         PAGE 4 — DEPLOY
-    ================================== -->
 
     <section
         class="page intro-page"
@@ -199,11 +197,6 @@
 
     </section>
 
-
-    <!-- =================================
-         PAGE 5 — SCALE
-    ================================== -->
-
     <section
         class="page intro-page"
         id="scale-page"
@@ -254,12 +247,7 @@
 
     </section>
 
-
-    <!-- =================================
-         PAGE 6 — APPLICATION
-    ================================== -->
-
-    <section class="page app-page">
+    <section class="page app-page" id="app-page">
 
         <header>
 
@@ -268,8 +256,8 @@
             </div>
 
             <div class="status">
-                <span class="status-dot"></span>
-                Cloud Connected
+                <span id="status-dot" class="status-dot"></span>
+                <span id="status-text">Cloud Disconnected</span>
             </div>
 
         </header>
@@ -324,11 +312,38 @@
                     autocomplete="off"
                 >
 
+                <input
+                    id="due-date"
+                    type="date"
+                    autocomplete="off"
+                >
+
+                <select id="priority">
+                    <option value="low">LOW</option>
+                    <option value="medium" selected>MEDIUM</option>
+                    <option value="high">HIGH</option>
+                </select>
+
                 <button type="submit">
                     ADD TASK
                 </button>
 
             </form>
+
+            <div class="task-toolbar">
+
+                <select id="status-filter">
+                    <option value="">ALL</option>
+                    <option value="pending">PENDING</option>
+                    <option value="in_progress">IN PROGRESS</option>
+                    <option value="done">DONE</option>
+                </select>
+
+                <button id="notify-btn" type="button">
+                    RUN NOTIFY CHECK
+                </button>
+
+            </div>
 
 
             <ul id="task-list"></ul>

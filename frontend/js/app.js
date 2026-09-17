@@ -1,22 +1,14 @@
-// ========================================
-// CLOUDTASK — API + CINEMATIC NAVIGATION
-// ========================================
-
-
-// ========================================
-// API ELEMENTS
-// ========================================
-
 const apiUrlInput = document.getElementById("api-url");
 const addForm = document.getElementById("add-form");
 const titleInput = document.getElementById("title");
 const taskList = document.getElementById("task-list");
 const taskCount = document.getElementById("task-count");
-
-
-// ========================================
-// SAVED API URL
-// ========================================
+const statusDot = document.getElementById("status-dot");
+const statusText = document.getElementById("status-text");
+const dueDateInput = document.getElementById("due-date");
+const priorityInput = document.getElementById("priority");
+const statusFilter = document.getElementById("status-filter");
+const notifyBtn = document.getElementById("notify-btn");
 
 const savedApiUrl =
     localStorage.getItem("cloudtask-api-url");
@@ -26,11 +18,6 @@ if (savedApiUrl && apiUrlInput) {
     apiUrlInput.value = savedApiUrl;
 }
 
-
-// ========================================
-// API BASE
-// ========================================
-
 function apiBase() {
 
     return apiUrlInput.value
@@ -38,10 +25,20 @@ function apiBase() {
         .replace(/\/+$/, "");
 }
 
+function setConnectionStatus(connected) {
 
-// ========================================
-// SAVE API URL
-// ========================================
+    if (!statusDot || !statusText) {
+        return;
+    }
+
+    if (connected) {
+        statusDot.classList.add("connected");
+        statusText.textContent = "Cloud Connected";
+    } else {
+        statusDot.classList.remove("connected");
+        statusText.textContent = "Cloud Disconnected";
+    }
+}
 
 if (apiUrlInput) {
 
@@ -63,13 +60,17 @@ if (apiUrlInput) {
 
         }
     );
+    if (statusFilter) {
+
+        statusFilter.addEventListener(
+            "change",
+            loadTasks
+        );
+
+    }
 
 }
 
-
-// ========================================
-// LOAD TASKS
-// ========================================
 
 async function loadTasks() {
 
@@ -81,19 +82,21 @@ async function loadTasks() {
 
     try {
 
+        const status = statusFilter
+            ? statusFilter.value
+            : "";
+
+        const query = status
+            ? `?status=${encodeURIComponent(status)}`
+            : "";
+
         const response =
-            await fetch(`${base}/tasks`);
-
-        if (!response.ok) {
-
-            throw new Error(
-                `HTTP ${response.status}`
-            );
-
-        }
+            await fetch(`${base}/tasks${query}`);
 
         const tasks =
             await response.json();
+
+        setConnectionStatus(true);
 
         renderTasks(tasks);
 
@@ -103,6 +106,8 @@ async function loadTasks() {
             "Failed to load tasks:",
             error
         );
+
+        setConnectionStatus(false);
 
         taskList.innerHTML = `
             <li class="error-message">
@@ -114,17 +119,103 @@ async function loadTasks() {
     }
 }
 
+function buildTaskMetaHtml(task) {
 
-// ========================================
-// RENDER TASKS
-// ========================================
+    const priority =
+        task.priority || "medium";
+
+    const dueDateHtml =
+        task.due_date
+        ? `<span>Due ${escapeHtml(task.due_date)}</span>`
+        : "";
+
+    return `
+        <div class="task-meta">
+            <span class="priority-badge priority-${priority}">
+                ${priority}
+            </span>
+            ${dueDateHtml}
+        </div>
+    `;
+}
+
+function buildTaskActionsHtml(task) {
+
+    const doneOrCompletedHtml =
+        task.status !== "done"
+        ? `
+            <button
+                class="done-btn"
+                data-id="${task.task_id}"
+            >
+                DONE
+            </button>
+        `
+        : `
+            <span class="completed-label">
+                COMPLETED
+            </span>
+        `;
+
+    return `
+        <div class="task-actions">
+
+            ${doneOrCompletedHtml}
+
+            <button
+                class="delete-btn"
+                data-id="${task.task_id}"
+            >
+                DELETE
+            </button>
+
+        </div>
+    `;
+}
+
+function buildTaskItemHtml(task) {
+
+    return `
+        <div>
+            <span class="task-title">
+                ${escapeHtml(task.title)}
+            </span>
+
+            ${buildTaskMetaHtml(task)}
+        </div>
+
+        ${buildTaskActionsHtml(task)}
+    `;
+}
+
+function wireTaskItemButtons(li, task) {
+
+    const doneButton =
+        li.querySelector(".done-btn");
+
+    if (doneButton) {
+
+        doneButton.addEventListener(
+            "click",
+            () => markDone(task.task_id)
+        );
+
+    }
+
+    const deleteButton =
+        li.querySelector(".delete-btn");
+
+    deleteButton.addEventListener(
+        "click",
+        () => deleteTask(task.task_id)
+    );
+}
 
 function renderTasks(tasks) {
 
     taskList.innerHTML = "";
 
     updateTaskCount(tasks.length);
-
 
     if (tasks.length === 0) {
 
@@ -137,89 +228,25 @@ function renderTasks(tasks) {
         return;
     }
 
-
     tasks.forEach(task => {
 
         const li =
             document.createElement("li");
 
-        li.className =
-            "task-item";
-
+        li.className = "task-item";
 
         if (task.status === "done") {
             li.classList.add("done");
         }
 
+        li.innerHTML = buildTaskItemHtml(task);
 
-        li.innerHTML = `
-            <span class="task-title">
-                ${escapeHtml(task.title)}
-            </span>
-
-            <div class="task-actions">
-
-                ${
-                    task.status !== "done"
-                    ? `
-                        <button
-                            class="done-btn"
-                            data-id="${task.id}"
-                        >
-                            DONE
-                        </button>
-                    `
-                    : `
-                        <span class="completed-label">
-                            COMPLETED
-                        </span>
-                    `
-                }
-
-                <button
-                    class="delete-btn"
-                    data-id="${task.id}"
-                >
-                    DELETE
-                </button>
-
-            </div>
-        `;
-
-
-        const doneButton =
-            li.querySelector(".done-btn");
-
-
-        if (doneButton) {
-
-            doneButton.addEventListener(
-                "click",
-                () => markDone(task.id)
-            );
-
-        }
-
-
-        const deleteButton =
-            li.querySelector(".delete-btn");
-
-
-        deleteButton.addEventListener(
-            "click",
-            () => deleteTask(task.id)
-        );
-
+        wireTaskItemButtons(li, task);
 
         taskList.appendChild(li);
 
     });
 }
-
-
-// ========================================
-// TASK COUNT
-// ========================================
 
 function updateTaskCount(count) {
 
@@ -230,11 +257,6 @@ function updateTaskCount(count) {
     taskCount.textContent =
         `${count} ${count === 1 ? "Task" : "Tasks"}`;
 }
-
-
-// ========================================
-// MARK DONE
-// ========================================
 
 async function markDone(id) {
 
@@ -285,11 +307,66 @@ async function markDone(id) {
     }
 }
 
+    async function runNotifyCheck() {
 
-// ========================================
-// DELETE
-// ========================================
+        const base = apiBase();
 
+        if (!base) {
+            return;
+        }
+
+        const originalText = notifyBtn.textContent;
+        notifyBtn.textContent = "CHECKING...";
+        notifyBtn.disabled = true;
+
+        try {
+
+            const response =
+                await fetch(`${base}/notify`, {
+                    method: "POST"
+                });
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `HTTP ${response.status}`
+                );
+
+            }
+
+            const result =
+                await response.json();
+
+            notifyBtn.textContent =
+                `SENT ${result.sent}`;
+
+        } catch (error) {
+
+            console.error(
+                "Notify check failed:",
+                error
+            );
+
+            notifyBtn.textContent = "FAILED";
+
+        } finally {
+
+            setTimeout(() => {
+                notifyBtn.textContent = originalText;
+                notifyBtn.disabled = false;
+            }, 2000);
+
+        }
+    }
+
+    if (notifyBtn) {
+
+        notifyBtn.addEventListener(
+            "click",
+            runNotifyCheck
+        );
+
+    }
 async function deleteTask(id) {
 
     const base = apiBase();
@@ -330,10 +407,59 @@ async function deleteTask(id) {
     }
 }
 
+function buildNewTaskPayload(title) {
 
-// ========================================
-// ADD TASK
-// ========================================
+    return {
+
+        title: title,
+
+        due_date: dueDateInput && dueDateInput.value
+            ? dueDateInput.value
+            : null,
+
+        priority: priorityInput
+            ? priorityInput.value
+            : "medium"
+
+    };
+}
+
+async function submitNewTask(base, payload) {
+
+    const response =
+        await fetch(
+            `${base}/tasks`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify(payload)
+            }
+        );
+
+    if (!response.ok) {
+
+        throw new Error(
+            `HTTP ${response.status}`
+        );
+
+    }
+
+    return response;
+}
+
+function resetAddForm() {
+
+    titleInput.value = "";
+
+    if (dueDateInput) {
+        dueDateInput.value = "";
+    }
+}
 
 if (addForm) {
 
@@ -343,49 +469,24 @@ if (addForm) {
 
             event.preventDefault();
 
-
             const title =
                 titleInput.value.trim();
 
             const base =
                 apiBase();
 
-
             if (!base || !title) {
                 return;
             }
 
-
             try {
 
-                const response =
-                    await fetch(
-                        `${base}/tasks`,
-                        {
-                            method: "POST",
+                const payload =
+                    buildNewTaskPayload(title);
 
-                            headers: {
-                                "Content-Type":
-                                    "application/json"
-                            },
+                await submitNewTask(base, payload);
 
-                            body: JSON.stringify({
-                                title: title
-                            })
-                        }
-                    );
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        `HTTP ${response.status}`
-                    );
-
-                }
-
-
-                titleInput.value = "";
+                resetAddForm();
 
                 await loadTasks();
 
@@ -401,12 +502,8 @@ if (addForm) {
         }
     );
 
+
 }
-
-
-// ========================================
-// ESCAPE HTML
-// ========================================
 
 function escapeHtml(value) {
 
@@ -418,294 +515,42 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
+function wireScrollButtons(selector) {
 
-// ========================================
-// CINEMATIC PAGE NAVIGATION
-// ========================================
+    const buttons =
+        document.querySelectorAll(selector);
 
-const pages =
-    document.querySelectorAll(".page");
+    buttons.forEach(button => {
 
+        button.addEventListener(
+            "click",
+            () => {
 
-let currentPage = 0;
+                const targetId =
+                    button.dataset.target;
 
+                const target =
+                    document.getElementById(
+                        targetId
+                    );
 
-/*
-    This prevents multiple wheel events from
-    fighting with each other during a transition.
-*/
-
-let isTransitioning = false;
-
-
-// ========================================
-// GO TO PAGE
-// ========================================
-
-function goToPage(index) {
-
-    if (
-        index < 0 ||
-        index >= pages.length
-    ) {
-        return;
-    }
-
-
-    if (isTransitioning) {
-        return;
-    }
-
-
-    isTransitioning = true;
-
-
-    /*
-        Lock the destination before scrolling.
-        This prevents the observer from changing
-        currentPage halfway through the animation.
-    */
-
-    currentPage = index;
-
-
-    const destination =
-        pages[index].offsetTop;
-
-
-    window.scrollTo({
-
-        top: destination,
-
-        behavior: "smooth"
-
-    });
-
-
-    /*
-        Keep the transition locked until the
-        smooth scroll has completely settled.
-    */
-
-    setTimeout(
-        () => {
-
-            window.scrollTo({
-                top: destination,
-                behavior: "auto"
-            });
-
-            isTransitioning = false;
-
-        },
-        950
-    );
-}
-
-
-// ========================================
-// MOUSE WHEEL NAVIGATION
-// ========================================
-
-window.addEventListener(
-    "wheel",
-    (event) => {
-
-        /*
-            Ignore tiny trackpad movements.
-        */
-
-        if (Math.abs(event.deltaY) < 20) {
-            return;
-        }
-
-
-        /*
-            Stop the browser's normal scrolling.
-        */
-
-        event.preventDefault();
-
-
-        /*
-            Ignore additional wheel events while
-            the cinematic transition is happening.
-        */
-
-        if (isTransitioning) {
-            return;
-        }
-
-
-        if (event.deltaY > 0) {
-
-            goToPage(
-                currentPage + 1
-            );
-
-        } else {
-
-            goToPage(
-                currentPage - 1
-            );
-
-        }
-
-    },
-    {
-        passive: false
-    }
-);
-
-
-// ========================================
-// INTERSECTION OBSERVER
-// ========================================
-
-const observer =
-    new IntersectionObserver(
-        (entries) => {
-
-            /*
-                DO NOT update currentPage while
-                a cinematic transition is happening.
-
-                This is what prevents the page from
-                jumping/bouncing backwards.
-            */
-
-            if (isTransitioning) {
-                return;
-            }
-
-
-            entries.forEach(entry => {
-
-                if (
-                    entry.isIntersecting &&
-                    entry.intersectionRatio >= 0.6
-                ) {
-
-                    const index =
-                        Array.from(pages)
-                            .indexOf(entry.target);
-
-
-                    if (index !== -1) {
-
-                        currentPage = index;
-
-                    }
-
+                if (!target) {
+                    return;
                 }
 
-            });
+                target.scrollIntoView({
+                    behavior: "smooth"
+                });
 
-        },
-        {
-            threshold: [0.6]
-        }
-    );
-
-
-pages.forEach(page => {
-    observer.observe(page);
-});
-
-
-// ========================================
-// BUILD / DEPLOY / SCALE BUTTONS
-// ========================================
-
-const featureButtons =
-    document.querySelectorAll(
-        ".feature-button"
-    );
-
-
-featureButtons.forEach(button => {
-
-    button.addEventListener(
-        "click",
-        () => {
-
-            const targetId =
-                button.dataset.target;
-
-
-            const target =
-                document.getElementById(
-                    targetId
-                );
-
-
-            if (!target) {
-                return;
             }
+        );
 
+    });
+}
 
-            const targetIndex =
-                Array.from(pages)
-                    .indexOf(target);
-
-
-            if (targetIndex === -1) {
-                return;
-            }
-
-
-            goToPage(targetIndex);
-
-        }
-    );
-
-});
-
-
-// ========================================
-// KEYBOARD NAVIGATION
-// ========================================
-
-window.addEventListener(
-    "keydown",
-    (event) => {
-
-        if (
-            event.key === "ArrowDown" ||
-            event.key === "PageDown"
-        ) {
-
-            event.preventDefault();
-
-            goToPage(
-                currentPage + 1
-            );
-
-        }
-
-
-        if (
-            event.key === "ArrowUp" ||
-            event.key === "PageUp"
-        ) {
-
-            event.preventDefault();
-
-            goToPage(
-                currentPage - 1
-            );
-
-        }
-
-    }
-);
-
-
-// ========================================
-// LOAD TASKS
-// ========================================
+wireScrollButtons(".feature-button");
+wireScrollButtons(".nav-btn");
 
 if (savedApiUrl) {
     loadTasks();
 }
-

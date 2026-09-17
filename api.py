@@ -1,12 +1,13 @@
 """
-CloudTask REST API — thin Flask wrapper around db.py, so the same
-storage logic the CLI uses is also reachable over HTTP. This is what
+CloudTask REST API — thin Flask wrapper around db.py and notify.py, so
+the same logic the CLI uses is also reachable over HTTP. This is what
 runs as a persistent ECS service behind the load balancer.
 """
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 import db
+import notify as notify_mod
 
 app = Flask(__name__)
 CORS(app)  # allow the S3/CloudFront-hosted frontend to call this API
@@ -56,6 +57,12 @@ def update_task(task_id):
 def delete_task(task_id):
     db.delete_task(task_id)
     return "", 204
+
+
+@app.route("/notify", methods=["POST"])
+def notify():
+    sent = notify_mod.publish_due_soon()
+    return jsonify({"sent": len(sent), "task_ids": sent})
 
 
 if __name__ == "__main__":
