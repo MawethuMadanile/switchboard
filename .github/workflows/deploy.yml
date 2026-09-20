@@ -1,0 +1,61 @@
+name: Deploy
+
+on:
+    push:
+      branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+        - name: Check out repository
+          uses: actions/checkout@v4
+
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+            python-version: "3.12"
+
+        - name: Install dependencies
+          run: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+            pip install "moto[dynamodb]"
+
+        - name: Run tests
+          run: pytest -v
+        
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+        - name: Check out repository
+          uses: actions/checkout@v4
+
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: us-east-1
+
+        - name: Log in to Amazon ECR
+          id: ecr-login
+          uses: aws-actions/amazon-ecr-login@v2
+
+        - name: Build and push CLI image
+          env:
+            REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          run: |
+            docker build -t $REGISTRY/cloudtask:latest -f DockerFile .
+            docker push $REGISTRY/cloudtask:latest
+
+        - name: ForceAPI service to redeploy with the new image
+          run: |
+            aws ecs update-service \
+            --cluster cloudtask-cluster \
+            --service cloudtask-api-service \
+            --force-new-deployment \
+            --region us-east-1
