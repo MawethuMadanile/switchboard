@@ -49,7 +49,7 @@ jobs:
           env:
             REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           run: |
-            docker build -t $REGISTRY/cloudtask:latest -f DockerFile .
+            docker build -t $REGISTRY/cloudtask:latest -f Dockerfile .
             docker push $REGISTRY/cloudtask:latest
 
         - name: ForceAPI service to redeploy with the new image
