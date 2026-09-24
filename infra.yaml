@@ -18,6 +18,9 @@ Parameters:
   ApiImageUri:
     Type: String
     Default: 472706939265.dkr.ecr.us-east-1.amazonaws.com/cloudtask-api:latest
+  BudgetEmail:
+    Type: String
+    Description: Email address to notify when spending crosses the threshold
 
 Resources:
   TasksTable:
@@ -36,6 +39,25 @@ Resources:
         - AttributeName: task_id
           KeyType: RANGE
 
+  MonthlyCostBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: cloudtask-monthly-budget
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: 10
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
   RemindersTopic:
     Type: AWS::SNS::Topic
     Properties:
