@@ -92,6 +92,7 @@
         "sns:DeleteTopic",
         "ec2:DescribeVpcs",
         "ec2:CreateSubnet",
+        "budgets:ViewBudget",
         "budgets:CreateBudget",
         "budgets:DescribeBudget",
         "budgets:ModifyBudget",
